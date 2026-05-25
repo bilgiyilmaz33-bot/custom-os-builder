@@ -1,15 +1,29 @@
-name: Build ISO
-on: [push]
+name: Alpment OS Build
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Paketle
+      - name: Depoları Güncelle
+        run: sudo apt-get update && sudo apt-get install -y xorriso isolinux squashfs-tools
+
+      - name: İşletim Sistemi Hazırlığı
         run: |
-          sudo apt-get update && sudo apt-get install -y xorriso
-          xorriso -as mkisofs -o alp.iso iso/
-      - uses: actions/upload-artifact@v4
+          mkdir -p iso_root/boot/grub
+          echo "Alpment OS - Başlangıç" > iso_root/README.txt
+          # Buraya kendi dosyalarını ekleyebilirsin
+      
+      - name: ISO Oluştur
+        run: |
+          xorriso -as mkisofs -o AlpmentOS.iso -isohybrid-mbr /usr/lib/SYSLINUX/isohdpfx.bin -c isolinux/boot.cat -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table iso_root
+
+      - name: Çıktıyı Kaydet
+        uses: actions/upload-artifact@v4
         with:
-          name: alp-iso
-          path: alp.iso
+          name: AlpmentOS-ISO
+          path: AlpmentOS.iso
