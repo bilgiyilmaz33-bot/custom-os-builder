@@ -1,0 +1,70 @@
+name: Ultimate Windows10 Style Gamer OS Builder
+
+on:
+  workflow_dispatch: # Manuel olarak "Run" butonuna basıp başlatabilmen için
+
+jobs:
+  build-iso:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: GitHub Deposunu Çek
+        uses: actions/checkout@v3
+
+      - name: Sistemi Güncelle ve Derleme Araçlarını Kur
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y debootstrap squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools
+
+      - name: Temel İşletim Sistemi İskeletini Oluştur (Ubuntu Tabanlı)
+        run: |
+          mkdir -p iso_root/live
+          mkdir -p chroot
+          sudo debootstrap --arch=amd64 focal chroot http://archive.ubuntu.com/ubuntu/
+
+      - name: Windows 10 Teması ve Oyuncu Paketlerini Sisteme Göm
+        run: |
+          sudo mount --bind /dev chroot/dev
+          sudo mount --bind /run chroot/run
+          sudo mount -t proc proc chroot/proc
+          sudo mount -t sysfs sysfs chroot/sys
+          
+          # Sistem içine girip gerekli ayarları yapıyoruz
+          sudo chroot chroot apt-get update
+          sudo chroot chroot apt-get install -y --no-install-recommends \
+            xfce4 xfce4-goodies xorg lightdm \
+            wine64 wine-stable winetricks \
+            git wget curl neofetch mesa-utils
+            
+          # Windows 10 Görünümü (XFCE için Windows 10 Teması indirme ve kurma)
+          sudo chroot chroot git clone https://github.com/B00merang-Project/Windows-10.git /usr/share/themes/Windows-10
+          sudo chroot chroot git clone https://github.com/B00merang-Project/Windows-10-Icons.git /usr/share/icons/Windows-10
+          
+          # .EXE dosyalarına çift tıklayınca otomatik WINE ile açılması için ilişkilendirme
+          sudo chroot chroot update-desktop-database
+          
+          # Bağlantıları temizle
+          sudo umount chroot/proc
+          sudo umount chroot/sys
+          sudo umount chroot/dev
+          sudo umount chroot/run
+
+      - name: ISO Dosyasını Sıkıştır ve Paketle
+        run: |
+          sudo mksquashfs chroot iso_root/live/filesystem.squashfs -comp xz
+          
+          # Grub ve Boot ayarlarını yapıyoruz
+          mkdir -p iso_root/boot/grub
+          echo 'menuentry "Gamer OS (Windows 10 Style)" { boot }' | sudo tee iso_root/boot/grub/grub.cfg
+          
+          # ISO'yu nihai haline getir
+          sudo xorriso -as mkisofs -r -V "GamerOS" \
+            -b boot/grub/i386-pc/eltorito.img \
+            -no-emul-boot -boot-load-size 4 -boot-info-table \
+            -o custom-gamer-os.iso iso_root
+
+      - name: ISO Dosyasını İndirme Linki Olarak Hazırla (Artifact)
+        uses: actions/upload-artifact@v3
+        with:
+          name: Windows10-Gamer-OS-ISO
+          path: custom-gamer-os.iso
