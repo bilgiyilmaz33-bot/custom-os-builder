@@ -1,4 +1,4 @@
-[14:16, 25.05.2026] Fatma Bilgi: name: Ultimate Windows10 Style Gamer OS Builder
+name: Ultimate Windows10 Style Gamer OS Builder
 
 on:
   workflow_dispatch:
