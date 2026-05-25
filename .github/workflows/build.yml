@@ -34,14 +34,9 @@ jobs:
           
           sudo chroot chroot apt-get update
           sudo chroot chroot apt-get install -y --no-install-recommends linux-image-generic live-boot initramfs-tools
-          
           sudo chroot chroot apt-get install -y network-manager network-manager-gnome wireless-tools wpasupplicant bluez bluez-tools blueman
-          
           sudo chroot chroot apt-get install -y xfce4 xfce4-goodies xorg lightdm lightdm-gtk-greeter ubiquity ubiquity-frontend-gtk
-          
           sudo chroot chroot apt-get install -y wine64 wine-stable winetricks binfmt-support
-          
-          sudo chroot chroot update-binfmts --enable wine
 
       - name: Windows 10 Temasi ve Arka Plan Tasarimi
         run: |
