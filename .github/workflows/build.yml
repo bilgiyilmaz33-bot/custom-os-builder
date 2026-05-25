@@ -29,8 +29,10 @@ jobs:
           sudo mount -t proc proc chroot/proc
           sudo mount -t sysfs sysfs chroot/sys
           
-          sudo apt-get update
-          sudo debootstrap --arch=amd64 focal chroot http://archive.ubuntu.com/ubuntu/ || true
+          # Depo Listesi Güncellemesi (Hata Çözen Kısım)
+          echo "deb http://archive.ubuntu.com/ubuntu/ focal main restricted universe multiverse" | sudo tee chroot/etc/apt/sources.list
+          echo "deb http://archive.ubuntu.com/ubuntu/ focal-updates main restricted universe multiverse" | sudo tee -a chroot/etc/apt/sources.list
+          echo "deb http://security.ubuntu.com/ubuntu focal-security main restricted universe multiverse" | sudo tee -a chroot/etc/apt/sources.list
           
           sudo chroot chroot apt-get update
           sudo chroot chroot apt-get install -y --no-install-recommends \
