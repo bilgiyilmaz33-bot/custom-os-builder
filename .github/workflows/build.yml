@@ -1,4 +1,4 @@
-name: Ultimate Windows10 Style Gamer OS Builder
+[14:16, 25.05.2026] Fatma Bilgi: name: Ultimate Windows10 Style Gamer OS Builder
 
 on:
   workflow_dispatch:
@@ -61,6 +61,113 @@ jobs:
             -o custom-gamer-os.iso iso_root
 
       - name: ISO Dosyasını İndirme Linki Olarak Hazırla (Artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows10-Gamer-OS-ISO
+          path: custom-gamer-os.iso
+[14:29, 25.05.2026] Fatma Bilgi: name: Ultimate Windows10 Style Gamer OS Builder
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-iso:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 🔥 [PRO] GitHub Deposunu Çek
+        uses: actions/checkout@v4
+
+      - name: 🛠️ [PRO] Bağımlılıkları ve Derleme Araçlarını Sisteme Yükle
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            debootstrap \
+            squashfs-tools \
+            xorriso \
+            grub-pc-bin \
+            grub-efi-amd64-bin \
+            mtools \
+            binutils \
+            libisoburn1
+
+      - name: 🏗️ [PRO] Temel İşletim Sistemi İskeletini İnşa Et
+        run: |
+          mkdir -p iso_root/live
+          mkdir -p chroot
+          sudo debootstrap --arch=amd64 focal chroot http://archive.ubuntu.com/ubuntu/
+
+      - name: 🚀 [PRO] Depoları Genişlet, Çekirdeği ve Oyuncu Paketlerini Enjekte Et
+        run: |
+          # Sanal dosya sistemlerini (VFS) chroot içerisine güvenli bağlama
+          sudo mount --bind /dev chroot/dev
+          sudo mount --bind /run chroot/run
+          sudo mount -t proc proc chroot/proc
+          sudo mount -t sysfs sysfs chroot/sys
+          
+          # Üçüncü parti yazılımlar ve Wine için resmi Ubuntu depolarını açıyoruz
+          echo "deb http://archive.ubuntu.com/ubuntu/ focal main restricted universe multiverse" | sudo tee chroot/etc/apt/sources.list
+          echo "deb http://archive.ubuntu.com/ubuntu/ focal-updates main restricted universe multiverse" | sudo tee -a chroot/etc/apt/sources.list
+          echo "deb http://security.ubuntu.com/ubuntu focal-security main restricted universe multiverse" | sudo tee -a chroot/etc/apt/sources.list
+          
+          # Sistem güncellenmesi ve sistem çekirdeği (Kernel) dahil paketlerin kurulumu
+          sudo chroot chroot apt-get update
+          sudo chroot chroot apt-get install -y --no-install-recommends \
+            linux-image-generic \
+            live-boot \
+            initramfs-tools \
+            xfce4 xfce4-goodies xorg lightdm \
+            wine64 wine-stable winetricks \
+            git wget curl neofetch mesa-utils
+            
+          # Windows 10 Görsel Giydirme Temalarının GitHub'dan Canlı Çekilmesi
+          sudo chroot chroot git clone https://github.com/B00merang-Project/Windows-10.git /usr/share/themes/Windows-10
+          sudo chroot chroot git clone https://github.com/B00merang-Project/Windows-10-Icons.git /usr/share/icons/Windows-10
+          sudo chroot chroot update-desktop-database
+          
+          # Güvenli sökme (Unmount) operasyonu
+          sudo umount chroot/proc
+          sudo umount chroot/sys
+          sudo umount chroot/dev
+          sudo umount chroot/run
+
+      - name: 📦 [PRO] Dosya Sistemini Sıkıştır (SquashFS)
+        run: |
+          sudo mksquashfs chroot iso_root/live/filesystem.squashfs -comp xz -b 1M
+
+      - name: 🧬 [PRO] Çekirdek (Kernel) ve Önyükleme Dosyalarını ISO Köküne Taşı
+        run: |
+          mkdir -p iso_root/boot
+          # chroot içinde oluşan en güncel çekirdek ve sürücü dosyalarını dinamik olarak bulup kopyalıyoruz
+          KERNEL_FILE=$(ls chroot/boot/vmlinuz-* | head -n 1)
+          INITRD_FILE=$(ls chroot/boot/initrd.img-* | head -n 1)
+          
+          sudo cp "$KERNEL_FILE" iso_root/boot/vmlinuz
+          sudo cp "$INITRD_FILE" iso_root/boot/initrd.img
+
+      - name: ⚙️ [PRO] GRUB Başlangıç Menüsünü Yapılandır
+        run: |
+          mkdir -p iso_root/boot/grub
+          cat << 'EOF' | sudo tee iso_root/boot/grub/grub.cfg
+          set timeout=5
+          set default=0
+
+          insmod env
+          insmod all_video
+
+          menuentry "Gamer OS (Windows 10 Style) - Canli Mod" {
+              search --set=root --file /live/filesystem.squashfs
+              linux /boot/vmlinuz boot=live components quiet splash
+              initrd /boot/initrd.img
+          }
+          EOF
+
+      - name: 💎 [PRO] Hibrit ISO Kalıbını Kusursuz Biçimde Derle
+        run: |
+          # El Torito imaj hatasını kökten çözen profesyonel GRUB motoru çağrısı
+          sudo grub-mkrescue -o custom-gamer-os.iso iso_root
+
+      - name: 🟩 [PRO] Hazır ISO Dosyasını İndirme Linkine Dönüştür (Artifact)
         uses: actions/upload-artifact@v4
         with:
           name: Windows10-Gamer-OS-ISO
