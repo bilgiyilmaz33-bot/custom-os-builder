@@ -9,20 +9,53 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Depoları Güncelle
-        run: sudo apt-get update && sudo apt-get install -y xorriso isolinux squashfs-tools
+      - name: Depoyu Çek
+        uses: actions/checkout@v4
 
-      - name: İşletim Sistemi Hazırlığı
+      - name: Gerekli Paketleri Kur
         run: |
-          mkdir -p iso_root/boot/grub
-          echo "Alpment OS - Başlangıç" > iso_root/README.txt
-          # Buraya kendi dosyalarını ekleyebilirsin
-      
-      - name: ISO Oluştur
-        run: |
-          xorriso -as mkisofs -o AlpmentOS.iso -isohybrid-mbr /usr/lib/SYSLINUX/isohdpfx.bin -c isolinux/boot.cat -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table iso_root
+          sudo apt-get update
+          sudo apt-get install -y xorriso syslinux isolinux
 
-      - name: Çıktıyı Kaydet
+      - name: Klasör Yapısını Hazırla
+        run: |
+          mkdir -p iso_root/isolinux
+
+      - name: Boot Dosyalarını Doğru Konumlardan Kopyala
+        run: |
+          # Ubuntu üzerindeki güncel isolinux ve syslinux dosyalarını kopyalıyoruz
+          cp /usr/lib/ISOLINUX/isolinux.bin iso_root/isolinux/
+          cp /usr/lib/syslinux/modules/bios/ldlinux.c32 iso_root/isolinux/
+
+      - name: Eksiksiz Isolinux Yapılandırması Oluştur
+        run: |
+          cat << 'EOF' > iso_root/isolinux/isolinux.cfg
+          default alpment
+          prompt 1
+          timeout 50
+
+          label alpment
+            localboot 0x80
+          EOF
+
+      - name: Karşılama Metni Ekle
+        run: |
+          echo "=======================================" > iso_root/AlpmentOS.txt
+          echo " Alpment OS Dunyasina Hos Geldiniz!    " >> iso_root/AlpmentOS.txt
+          echo "=======================================" >> iso_root/AlpmentOS.txt
+
+      - name: ISO Dosyasını Sıkıştır ve Derle
+        run: |
+          xorriso -as mkisofs \
+            -o AlpmentOS.iso \
+            -b isolinux/isolinux.bin \
+            -c isolinux/boot.cat \
+            -no-emul-boot \
+            -boot-load-size 4 \
+            -boot-info-table \
+            iso_root
+
+      - name: ISO Dosyasını Artifact Olarak Çıkart
         uses: actions/upload-artifact@v4
         with:
           name: AlpmentOS-ISO
