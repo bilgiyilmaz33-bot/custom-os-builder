@@ -1,58 +1,17 @@
-name: Alp OS Gamer - Son Kararlı Sürüm
+name: Build
 
-on:
-  workflow_dispatch:
+on: [push]
 
 jobs:
-  build-iso:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Depoyu Cek
-        uses: actions/checkout@v4
-
-      - name: Ortami Hazirla
+      - uses: actions/checkout@v4
+      - name: ISO
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y debootstrap squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools binutils libisoburn1
-
-      - name: Sistemi Kur
-        run: |
-          mkdir -p iso_root/live chroot
-          sudo debootstrap --arch=amd64 focal chroot http://archive.ubuntu.com/ubuntu/
-          sudo mount --bind /dev chroot/dev
-          sudo mount --bind /run chroot/run
-          sudo mount -t proc proc chroot/proc
-          sudo mount -t sysfs sysfs chroot/sys
-
-      - name: Paketleri Garantili Kur
-        run: |
-          # Hata payını sıfırlıyoruz: depo güncellemelerini zorunlu kıldık
-          sudo chroot chroot bash -c "
-            echo 'deb http://archive.ubuntu.com/ubuntu focal main restricted universe multiverse' > /etc/apt/sources.list
-            apt-get update -qq
-            # En temel, hata vermeyecek paket seti
-            apt-get install -y linux-image-generic live-boot xfce4 xfce4-goodies lightdm wine64 htop git || true
-          "
-
-      - name: Temalar ve Ayarlar
-        run: |
-          sudo chroot chroot mkdir -p /usr/share/themes/Windows-10
-          # Hata yok, sadece klasör oluşturma
-          echo -e '#!/bin/bash\nwine "$@"' | sudo tee chroot/usr/local/bin/run-exe
-          sudo chmod +x chroot/usr/local/bin/run-exe
-
-      - name: Paketle ve ISO Derle
-        run: |
-          sudo umount chroot/proc chroot/sys chroot/dev chroot/run 2>/dev/null || true
-          sudo mksquashfs chroot iso_root/live/filesystem.squashfs -comp xz -b 1M -no-progress
-          mkdir -p iso_root/boot/grub
-          cp chroot/boot/vmlinuz-* iso_root/boot/vmlinuz || true
-          cp chroot/boot/initrd.img-* iso_root/boot/initrd.img || true
-          echo 'menuentry "Alp OS" { linux /boot/vmlinuz boot=live components quiet splash; initrd /boot/initrd.img }' | sudo tee iso_root/boot/grub/grub.cfg
-          sudo grub-mkrescue -o AlpOS_Final_V2.iso iso_root
-
-      - name: ISO'yu Yukle
-        uses: actions/upload-artifact@v4
+          sudo apt-get install -y xorriso
+          xorriso -as mkisofs -o alp.iso iso/
+      - uses: actions/upload-artifact@v4
         with:
-          name: AlpOS-Final-V2
-          path: AlpOS_Final_V2.iso
+          name: alp-iso
+          path: alp.iso
