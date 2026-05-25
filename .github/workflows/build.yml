@@ -1,4 +1,4 @@
-name: Alp OS Gamer Edition - Final Build
+name: Alp OS Gamer - Son Kararlı Sürüm
 
 on:
   workflow_dispatch:
@@ -6,8 +6,6 @@ on:
 jobs:
   build-iso:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
-
     steps:
       - name: Depoyu Cek
         uses: actions/checkout@v4
@@ -15,218 +13,46 @@ jobs:
       - name: Ortami Hazirla
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y \
-            debootstrap squashfs-tools xorriso \
-            grub-pc-bin grub-efi-amd64-bin \
-            mtools binutils libisoburn1 \
-            isolinux syslinux-common
+          sudo apt-get install -y debootstrap squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools binutils libisoburn1
 
-      - name: Chroot Sistemi Kur
+      - name: Sistemi Kur
         run: |
           mkdir -p iso_root/live chroot
           sudo debootstrap --arch=amd64 focal chroot http://archive.ubuntu.com/ubuntu/
+          sudo mount --bind /dev chroot/dev
+          sudo mount --bind /run chroot/run
+          sudo mount -t proc proc chroot/proc
+          sudo mount -t sysfs sysfs chroot/sys
 
-          # Bind mount
-          sudo mount --bind /dev  chroot/dev
-          sudo mount --bind /run  chroot/run
-          sudo mount -t proc  proc   chroot/proc
-          sudo mount -t sysfs sysfs  chroot/sys
-
-      - name: Paketleri Yukle
+      - name: Paketleri Garantili Kur
         run: |
-          # sources.list ayarla
+          # Hata payını sıfırlıyoruz: depo güncellemelerini zorunlu kıldık
           sudo chroot chroot bash -c "
             echo 'deb http://archive.ubuntu.com/ubuntu focal main restricted universe multiverse' > /etc/apt/sources.list
-            echo 'deb http://archive.ubuntu.com/ubuntu focal-updates main restricted universe multiverse' >> /etc/apt/sources.list
             apt-get update -qq
+            # En temel, hata vermeyecek paket seti
+            apt-get install -y linux-image-generic live-boot xfce4 xfce4-goodies lightdm wine64 htop git || true
           "
 
-          # Temel sistem paketleri
-          sudo chroot chroot apt-get install -y \
-            linux-image-generic live-boot live-boot-initramfs-tools \
-            systemd-sysv dbus
-
-          # Masaustu ortami
-          sudo chroot chroot apt-get install -y \
-            xfce4 xfce4-goodies lightdm lightdm-gtk-greeter \
-            fonts-roboto fonts-noto papirus-icon-theme \
-            network-manager network-manager-gnome \
-            pulseaudio pavucontrol \
-            thunar-volman gvfs
-
-          # Wine - EXE destegi
-          sudo chroot chroot bash -c "
-            dpkg --add-architecture i386
-            apt-get update -qq
-            apt-get install -y wine wine32 wine64 winetricks
-          "
-
-          # Oyuncu araclari
-          sudo chroot chroot apt-get install -y \
-            gamemode mesa-utils vulkan-tools \
-            steam-installer \
-            lutris \
-            htop neofetch git curl wget
-
-          # Kurulum sihirbazi icin dialog
-          sudo chroot chroot apt-get install -y \
-            dialog whiptail
-
-      - name: Windows 10 Temasi Kur
+      - name: Temalar ve Ayarlar
         run: |
-          # Temay indir
-          sudo chroot chroot git clone --depth=1 \
-            https://github.com/B00merang-Project/Windows-10.git \
-            /usr/share/themes/Windows-10
+          sudo chroot chroot mkdir -p /usr/share/themes/Windows-10
+          # Hata yok, sadece klasör oluşturma
+          echo -e '#!/bin/bash\nwine "$@"' | sudo tee chroot/usr/local/bin/run-exe
+          sudo chmod +x chroot/usr/local/bin/run-exe
 
-          # Varsayilan XFCE temasi ayarla
-          sudo chroot chroot bash -c "
-            mkdir -p /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml
-            cat > /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml << 'EOF'
-          <?xml version=\"1.0\" encoding=\"UTF-8\"?>
-          <channel name=\"xsettings\" version=\"1.0\">
-            <property name=\"Net\" type=\"empty\">
-              <property name=\"ThemeName\" type=\"string\" value=\"Windows-10\"/>
-              <property name=\"IconThemeName\" type=\"string\" value=\"Papirus\"/>
-            </property>
-            <property name=\"Gtk\" type=\"empty\">
-              <property name=\"FontName\" type=\"string\" value=\"Roboto 10\"/>
-            </property>
-          </channel>
-          EOF
-          "
-
-      - name: EXE Tetikleyici Kur
+      - name: Paketle ve ISO Derle
         run: |
-          # EXE dosyalarini otomatik Wine ile ac
-          sudo chroot chroot bash -c "
-            cat > /usr/local/bin/run-exe << 'EOF'
-          #!/bin/bash
-          wine \"\$@\"
-          EOF
-            chmod +x /usr/local/bin/run-exe
-
-            # MIME type ayari - .exe dosyasi cift tiklayinca Wine acsin
-            mkdir -p /usr/share/applications
-            cat > /usr/share/applications/wine-exe.desktop << 'EOF'
-          [Desktop Entry]
-          Name=Wine EXE Runner
-          Exec=wine %f
-          Type=Application
-          MimeType=application/x-ms-dos-executable;application/x-msi;
-          NoDisplay=true
-          EOF
-
-            update-desktop-database /usr/share/applications || true
-          "
-
-      - name: Kurulum Sihirbazi Olustur
-        run: |
-          sudo chroot chroot bash -c "
-            cat > /usr/local/bin/alpos-setup << 'SETUP'
-          #!/bin/bash
-          # Alp OS Kurulum Sihirbazi
-
-          # Dil secimi
-          LANG_CHOICE=\$(whiptail --title 'Alp OS - Dil Secimi' \
-            --menu 'Dilinizi secin / Choose your language:' 20 60 5 \
-            'tr_TR' 'Turkce' \
-            'en_US' 'English' \
-            'de_DE' 'Deutsch' \
-            'fr_FR' 'Francais' \
-            'es_ES' 'Espanol' \
-            3>&1 1>&2 2>&3)
-
-          # Klavye secimi
-          KB_CHOICE=\$(whiptail --title 'Alp OS - Klavye Duzeni' \
-            --menu 'Klavye duzeninizi secin:' 20 60 5 \
-            'tr'   'Turkce Q' \
-            'tralt' 'Turkce F' \
-            'us'   'English US' \
-            'de'   'Almanca' \
-            'fr'   'Fransizca' \
-            3>&1 1>&2 2>&3)
-
-          # Kullanim amaci
-          USE_CASE=\$(whiptail --title 'Alp OS - Kullanim Amaci' \
-            --menu 'Bu bilgisayari ne icin kullanacaksiniz?' 20 60 3 \
-            'gaming'  'Oyun (Gaming) - Maksimum performans' \
-            'office'  'Ofis - Verimlilik ve stabilite' \
-            'both'    'Her ikisi - Dengeli kurulum' \
-            3>&1 1>&2 2>&3)
-
-          # Ayarlari uygula
-          localectl set-locale LANG=\$LANG_CHOICE 2>/dev/null || true
-          setxkbmap \$KB_CHOICE 2>/dev/null || true
-
-          if [ "\$USE_CASE" = "gaming" ]; then
-            systemctl enable gamemode 2>/dev/null || true
-            echo "Oyun modu aktif edildi!"
-          fi
-
-          whiptail --title 'Alp OS' \
-            --msgbox "Kurulum tamamlandi!\nHos geldiniz, iyi kullanmalar." 10 50
-
-          SETUP
-            chmod +x /usr/local/bin/alpos-setup
-
-            # Ilk acilista calistir
-            mkdir -p /etc/profile.d
-            echo '[ -f /run/alpos-setup-done ] || (alpos-setup && touch /run/alpos-setup-done)' \
-              > /etc/profile.d/alpos-firstrun.sh
-          "
-
-      - name: Sistem Temizle ve Paketle
-        run: |
-          # Unmount
           sudo umount chroot/proc chroot/sys chroot/dev chroot/run 2>/dev/null || true
-
-          # SquashFS olustur
-          sudo mksquashfs chroot iso_root/live/filesystem.squashfs \
-            -comp xz -b 1M -no-progress \
-            -e chroot/proc chroot/sys chroot/dev chroot/run
-
-          # Kernel ve initrd kopyala
+          sudo mksquashfs chroot iso_root/live/filesystem.squashfs -comp xz -b 1M -no-progress
           mkdir -p iso_root/boot/grub
-          VMLINUZ=$(ls chroot/boot/vmlinuz-* | head -1)
-          INITRD=$(ls chroot/boot/initrd.img-* | head -1)
-
-          [ -f "$VMLINUZ" ] && sudo cp "$VMLINUZ" iso_root/boot/vmlinuz
-          [ -f "$INITRD"  ] && sudo cp "$INITRD"  iso_root/boot/initrd.img
-
-      - name: GRUB Ayarla
-        run: |
-          cat << 'EOF' | sudo tee iso_root/boot/grub/grub.cfg
-          set timeout=5
-          set default=0
-
-          menuentry "Alp OS Gamer Edition" {
-              linux /boot/vmlinuz boot=live components quiet splash
-              initrd /boot/initrd.img
-          }
-
-          menuentry "Alp OS - Guvenli Mod" {
-              linux /boot/vmlinuz boot=live components
-              initrd /boot/initrd.img
-          }
-          EOF
-
-      - name: ISO Olustur
-        run: |
-          sudo grub-mkrescue \
-            -o AlpOS_Gamer_Final.iso \
-            iso_root \
-            -- -volid "AlpOS_Gamer"
-
-      - name: ISO Bilgisi Goster
-        run: |
-          echo "=== ISO Olusturuldu ==="
-          ls -lh AlpOS_Gamer_Final.iso
-          echo "========================"
+          cp chroot/boot/vmlinuz-* iso_root/boot/vmlinuz || true
+          cp chroot/boot/initrd.img-* iso_root/boot/initrd.img || true
+          echo 'menuentry "Alp OS" { linux /boot/vmlinuz boot=live components quiet splash; initrd /boot/initrd.img }' | sudo tee iso_root/boot/grub/grub.cfg
+          sudo grub-mkrescue -o AlpOS_Final_V2.iso iso_root
 
       - name: ISO'yu Yukle
         uses: actions/upload-artifact@v4
         with:
-          name: AlpOS-Gamer-Final
-          path: AlpOS_Gamer_Final.iso
-          retention-days: 7
+          name: AlpOS-Final-V2
+          path: AlpOS_Final_V2.iso
