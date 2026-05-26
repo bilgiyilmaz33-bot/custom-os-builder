@@ -5,31 +5,31 @@
 
 echo "=== Alpment7 OS İnşa Süreci Başladı ==="
 
+# EKSİK OLAN PAKETİ SUNUCUYA KURUYORUZ (mksquashfs hatasının kesin çözümü)
+sudo apt-get update
+sudo apt-get install -y squashfs-tools debootstrap
+
 # 1. Geçici klasörleri oluştur
 mkdir -p build_dir/chroot
 mkdir -p build_dir/image/live
 
-# 2. Temel Linux altyapısını indir (Hata veren focal yerine en güncel noble sürümünü koyduk)
+# 2. Temel Linux altyapısını indir
 echo "=> Temel sistem dosyaları indiriliyor..."
 sudo debootstrap --arch=amd64 noble build_dir/chroot http://archive.ubuntu.com/ubuntu/
 
-# 3. Sistemin içine girip Türkçe Dil, Klavye ve .EXE (WINE) paketlerini kur
+# 3. Sistemin içine girip paketleri kur
 echo "=> Türkçe dil desteği, .EXE motoru ve KDE Plasma yükleniyor..."
 sudo chroot build_dir/chroot /bin/bash -c "
     apt-get update
     
     # Türkçe Dil ve Klavye paketleri
     apt-get install -y locales language-pack-tr language-pack-kde-tr console-data keyboard-configuration
-    
-    # Sistem dilini Türkçe yap
     locale-gen tr_TR.UTF-8
     update-locale LANG=tr_TR.UTF-8 OS_LOCALE=tr_TR
-    
-    # Klavye düzenini kalıcı olarak Türkçe Q yap
     echo 'XKBMODEL=\"pc105\"' > /etc/default/keyboard
     echo 'XKBLAYOUT=\"tr\"' >> /etc/default/keyboard
 
-    # Temel sistem arayüzü, WINE (.EXE motoru) ve ekstra görsel araçlar
+    # Arayüz ve .EXE Motoru
     apt-get install -y --no-install-recommends \
         ubuntu-standard \
         casper \
@@ -66,7 +66,7 @@ sudo chroot build_dir/chroot /bin/bash -c "
     echo 'Directories=stereo' >> /usr/share/sounds/alpment7/index.theme
 "
 
-# 6. ŞAK DİYE .EXE AÇMA KOMBİNASYONU (Dosya İlişkilendirmesi)
+# 6. ŞAK DİYE .EXE AÇMA KOMBİNASYONU
 echo "=> .EXE dosyalarını çift tıklamayla doğrudan WINE ile açma ayarı yapılıyor..."
 sudo mkdir -p build_dir/chroot/usr/share/applications
 sudo bash -c "cat << 'EOF' > build_dir/chroot/usr/share/applications/wine-autostart.desktop
