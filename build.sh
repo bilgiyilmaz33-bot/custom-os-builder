@@ -1,17 +1,17 @@
 #!/bin/bash
 # ==========================================
-# Alpment7 OS - Windows 7 HD Görünüm, Ses ve .EXE Geliştirme Kodları
+# Alpment7 OS - Hata Düzeltilmiş Kurulum Kodları
 # ==========================================
 
-echo "=== Alpment7 OS Gelişmiş İnşa Süreci Başladı ==="
+echo "=== Alpment7 OS İnşa Süreci Başladı ==="
 
 # 1. Geçici klasörleri oluştur
 mkdir -p build_dir/chroot
 mkdir -p build_dir/image/live
 
-# 2. Temel Linux altyapısını indir
+# 2. Temel Linux altyapısını indir (Hata veren focal yerine en güncel noble sürümünü koyduk)
 echo "=> Temel sistem dosyaları indiriliyor..."
-sudo debootstrap --arch=amd64 focal build_dir/chroot http://archive.ubuntu.com/ubuntu/
+sudo debootstrap --arch=amd64 noble build_dir/chroot http://archive.ubuntu.com/ubuntu/
 
 # 3. Sistemin içine girip Türkçe Dil, Klavye ve .EXE (WINE) paketlerini kur
 echo "=> Türkçe dil desteği, .EXE motoru ve KDE Plasma yükleniyor..."
@@ -45,14 +45,10 @@ sudo chroot build_dir/chroot /bin/bash -c "
 
 # 4. WINDOWS 7 HD GÖRÜNÜMÜ VE AERO GLASS AYARLARI
 echo "=> Windows 7 HD Aero temaları sisteme entegre ediliyor..."
-# Sistem açıldığında KDE Plasma'nın doğrudan Windows 7 gibi görünmesi için hazır açık kaynaklı Win7 temalarını çekiyoruz
 sudo chroot build_dir/chroot /bin/bash -c "
     mkdir -p /usr/share/themes
     mkdir -p /usr/share/icons
     
-    # GitHub'dan açık kaynaklı Windows 7 Aero temalarını ve ikonlarını sisteme kopyalıyoruz
-    git clone https://github.com/vinceliuice/WhiteSur-gtk-theme.git /tmp/w7-theme
-    # (Burada KDE için Windows 7 yerleşim konfigürasyonlarını varsayılan yapıyoruz)
     mkdir -p /etc/skel/.config
     echo '[Theme]' > /etc/skel/.config/kdeglobals
     echo 'Name=Windows7-Aero' >> /etc/skel/.config/kdeglobals
@@ -63,7 +59,6 @@ echo "=> Logolar ve Windows 7 sistem sesleri şeması kuruluyor..."
 sudo mkdir -p build_dir/chroot/usr/share/sounds/alpment7
 sudo mkdir -p build_dir/chroot/usr/share/wallpapers/alpment7
 
-# Sistem seslerinin Linux'ta doğru tetiklenmesi için ses haritası oluşturuyoruz
 sudo chroot build_dir/chroot /bin/bash -c "
     echo '[Sound Theme]' > /usr/share/sounds/alpment7/index.theme
     echo 'Name=Alpment7' >> /usr/share/sounds/alpment7/index.theme
@@ -83,7 +78,6 @@ MimeType=application/x-ms-dos-executable;application/x-msi;application/x-ms-shor
 NoDisplay=true
 EOF"
 
-# Sisteme .exe gördüğü an bu üstteki tetikleyiciyi çalıştırmasını söylüyoruz
 sudo chroot build_dir/chroot /bin/bash -c "
     echo 'application/x-ms-dos-executable=wine-autostart.desktop' >> /usr/share/applications/defaults.list
     echo 'application/x-msi=wine-autostart.desktop' >> /usr/share/applications/defaults.list
